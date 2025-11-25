@@ -1,29 +1,26 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { getWelcomeEmailHtml } from './email-template';
 
-// Environment variables (set these in your deployment or local env)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
+// Environment variables
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const RESEND_API_KEY = process.env.RESEND_API_KEY!;
 const RESEND_FROM = process.env.RESEND_FROM || 'no-reply@aurium.site';
 
-if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  console.warn('Warning: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set.');
-}
-if (!RESEND_API_KEY) {
-  console.warn('Warning: RESEND_API_KEY is not set.');
-}
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const resend = new Resend(RESEND_API_KEY);
 
-const supabase = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
-const resend = new Resend(RESEND_API_KEY || '');
-
-function isValidEmail(email: string) {
+function isValidEmail(email: string): boolean {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(
+  req: VercelRequest,
+  res: VercelResponse
+) {
   // Set CORS headers
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -51,7 +48,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Check deduplication first
+    // Check for existing email
     const { data: existing, error: selectError } = await supabase
       .from('waitlist_users')
       .select('id, email')
@@ -68,7 +65,7 @@ export default async function handler(req: any, res: any) {
       return res.status(409).json({ message: 'Already on waitlist' });
     }
 
-    // Insert new waitlist entry
+    // Insert new entry
     const { data: inserted, error: insertError } = await supabase
       .from('waitlist_users')
       .insert([{ email }])
@@ -83,24 +80,27 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: 'Database insert error' });
     }
 
-    // Send welcome email via Resend — do not block or roll back DB if email fails
+    // Send welcome email
     try {
-      const emailRes = await resend.emails.send({
+      await resend.emails.send({
         from: RESEND_FROM,
         to: [email],
         subject: 'Welcome to the Waitlist! 🚀',
         html: getWelcomeEmailHtml(email),
-        text: `Hi ${email},\n\nThanks for joining our waitlist — we'll reach out with updates!`,
       });
-      console.info('Resend sent id:', (emailRes as any)?.id || 'no-id');
-    } catch (err) {
-      console.error('Resend send error:', err);
+      console.log('Welcome email sent to:', email);
+    } catch (emailError) {
+      console.error('Email send error:', emailError);
+      // Don't fail the request if email fails
     }
 
-    return res.status(201).json({ message: 'Joined waitlist', entry: inserted || null });
+    return res.status(201).json({
+      message: 'Joined waitlist successfully',
+      entry: inserted
+    });
 
-  } catch (err) {
-    console.error('Unhandled error in join handler:', err);
+  } catch (error) {
+    console.error('Unhandled error:', error);
     return res.status(500).json({ error: 'Server error' });
   }
 }
