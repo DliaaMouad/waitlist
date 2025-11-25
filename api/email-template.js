@@ -1,4 +1,4 @@
-function getWelcomeEmailHtml(email) {
+export function getWelcomeEmailHtml(email) {
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -189,5 +189,3 @@ function getWelcomeEmailHtml(email) {
 </html>
   `.trim();
 }
-
-module.exports = { getWelcomeEmailHtml };

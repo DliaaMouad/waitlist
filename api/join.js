@@ -1,13 +1,13 @@
-const { createClient } = require('@supabase/supabase-js');
-const { Resend } = require('resend');
-const { getWelcomeEmailHtml } = require('./email-template.cjs');
+import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+import { getWelcomeEmailHtml } from './email-template.js';
 
 function isValidEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
 }
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -103,4 +103,4 @@ module.exports = async function handler(req, res) {
         console.error('Unhandled error:', error);
         return res.status(500).json({ error: `Server Error: ${error.message}` });
     }
-};
+}
