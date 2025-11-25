@@ -1,9 +1,5 @@
-/**
- * Welcome email template for Aurium waitlist
- * Custom branded template with full vision and feature descriptions
- */
-export function getWelcomeEmailHtml(email: string): string {
-  return `
+function getWelcomeEmailHtml(email) {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -193,3 +189,5 @@ export function getWelcomeEmailHtml(email: string): string {
 </html>
   `.trim();
 }
+
+module.exports = { getWelcomeEmailHtml };
