@@ -3,15 +3,6 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { getWelcomeEmailHtml } from './email-template';
 
-// Environment variables
-const SUPABASE_URL = process.env.SUPABASE_URL!;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const RESEND_API_KEY = process.env.RESEND_API_KEY!;
-const RESEND_FROM = process.env.RESEND_FROM || 'no-reply@aurium.site';
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-const resend = new Resend(RESEND_API_KEY);
-
 function isValidEmail(email: string): boolean {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
@@ -37,6 +28,20 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // 1. Check Environment Variables
+  const SUPABASE_URL = process.env.SUPABASE_URL;
+  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const RESEND_API_KEY = process.env.RESEND_API_KEY;
+  const RESEND_FROM = process.env.RESEND_FROM || 'no-reply@aurium.site';
+
+  if (!SUPABASE_URL) return res.status(500).json({ error: 'Server Config Error: Missing SUPABASE_URL' });
+  if (!SUPABASE_SERVICE_ROLE_KEY) return res.status(500).json({ error: 'Server Config Error: Missing SUPABASE_SERVICE_ROLE_KEY' });
+  if (!RESEND_API_KEY) return res.status(500).json({ error: 'Server Config Error: Missing RESEND_API_KEY' });
+
+  // 2. Initialize Clients
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const resend = new Resend(RESEND_API_KEY);
+
   const email = (req.body?.email && String(req.body.email).trim().toLowerCase()) || '';
 
   if (!email) {
@@ -48,7 +53,7 @@ export default async function handler(
   }
 
   try {
-    // Check for existing email
+    // 3. Check for existing email in Supabase
     const { data: existing, error: selectError } = await supabase
       .from('waitlist_users')
       .select('id, email')
@@ -58,14 +63,14 @@ export default async function handler(
 
     if (selectError) {
       console.error('Supabase select error:', selectError);
-      return res.status(500).json({ error: 'Database error' });
+      return res.status(500).json({ error: `Database Error: ${selectError.message}` });
     }
 
     if (existing) {
       return res.status(409).json({ message: 'Already on waitlist' });
     }
 
-    // Insert new entry
+    // 4. Insert new entry
     const { data: inserted, error: insertError } = await supabase
       .from('waitlist_users')
       .insert([{ email }])
@@ -77,10 +82,10 @@ export default async function handler(
         return res.status(409).json({ message: 'Already on waitlist' });
       }
       console.error('Supabase insert error:', insertError);
-      return res.status(500).json({ error: 'Database insert error' });
+      return res.status(500).json({ error: `Insert Error: ${insertError.message}` });
     }
 
-    // Send welcome email
+    // 5. Send welcome email
     try {
       await resend.emails.send({
         from: RESEND_FROM,
@@ -89,9 +94,9 @@ export default async function handler(
         html: getWelcomeEmailHtml(email),
       });
       console.log('Welcome email sent to:', email);
-    } catch (emailError) {
+    } catch (emailError: any) {
       console.error('Email send error:', emailError);
-      // Don't fail the request if email fails
+      // We don't fail the request if email fails, but we log it
     }
 
     return res.status(201).json({
@@ -99,8 +104,8 @@ export default async function handler(
       entry: inserted
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Unhandled error:', error);
-    return res.status(500).json({ error: 'Server error' });
+    return res.status(500).json({ error: `Server Error: ${error.message}` });
   }
 }
