@@ -18,10 +18,6 @@ if (!RESEND_API_KEY) {
 const supabase = createClient(SUPABASE_URL || '', SUPABASE_SERVICE_ROLE_KEY || '');
 const resend = new Resend(RESEND_API_KEY || '');
 
-export const config = {
-  runtime: 'edge',
-};
-
 function isValidEmail(email: string) {
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email);
