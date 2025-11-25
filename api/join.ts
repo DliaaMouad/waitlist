@@ -23,26 +23,31 @@ function isValidEmail(email: string) {
   return re.test(email);
 }
 
-export default async function handler(request: Request) {
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
+export default async function handler(req: any, res: any) {
+  // Set CORS headers
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+
+  // Handle OPTIONS request
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
   }
 
-  let body: any;
-  try {
-    body = await request.json();
-  } catch (err) {
-    return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const email = (body && body.email && String(body.email).trim().toLowerCase()) || '';
+  const email = (req.body?.email && String(req.body.email).trim().toLowerCase()) || '';
 
   if (!email) {
-    return new Response(JSON.stringify({ error: 'Email is required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return res.status(400).json({ error: 'Email is required' });
   }
 
   if (!isValidEmail(email)) {
-    return new Response(JSON.stringify({ error: 'Invalid email format' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+    return res.status(400).json({ error: 'Invalid email format' });
   }
 
   try {
@@ -56,11 +61,11 @@ export default async function handler(request: Request) {
 
     if (selectError) {
       console.error('Supabase select error:', selectError);
-      return new Response(JSON.stringify({ error: 'Database error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      return res.status(500).json({ error: 'Database error' });
     }
 
     if (existing) {
-      return new Response(JSON.stringify({ message: 'Already on waitlist' }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+      return res.status(409).json({ message: 'Already on waitlist' });
     }
 
     // Insert new waitlist entry
@@ -72,30 +77,30 @@ export default async function handler(request: Request) {
 
     if (insertError) {
       if ((insertError as any).code === '23505') {
-        return new Response(JSON.stringify({ message: 'Already on waitlist' }), { status: 409, headers: { 'Content-Type': 'application/json' } });
+        return res.status(409).json({ message: 'Already on waitlist' });
       }
       console.error('Supabase insert error:', insertError);
-      return new Response(JSON.stringify({ error: 'Database insert error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      return res.status(500).json({ error: 'Database insert error' });
     }
 
     // Send welcome email via Resend — do not block or roll back DB if email fails
     try {
-      const res = await resend.emails.send({
+      const emailRes = await resend.emails.send({
         from: RESEND_FROM,
         to: [email],
         subject: 'Welcome to the Waitlist! 🚀',
         html: getWelcomeEmailHtml(email),
         text: `Hi ${email},\n\nThanks for joining our waitlist — we'll reach out with updates!`,
       });
-      console.info('Resend sent id:', (res as any)?.id || 'no-id');
+      console.info('Resend sent id:', (emailRes as any)?.id || 'no-id');
     } catch (err) {
       console.error('Resend send error:', err);
     }
 
-    return new Response(JSON.stringify({ message: 'Joined waitlist', entry: inserted || null }), { status: 201, headers: { 'Content-Type': 'application/json' } });
+    return res.status(201).json({ message: 'Joined waitlist', entry: inserted || null });
 
   } catch (err) {
     console.error('Unhandled error in join handler:', err);
-    return new Response(JSON.stringify({ error: 'Server error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return res.status(500).json({ error: 'Server error' });
   }
 }
