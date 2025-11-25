@@ -9,15 +9,50 @@ import { Separator } from "../../components/ui/separator";
 export const WaitlistBeta = (): JSX.Element => {
   const [email, setEmail] = useState("");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email && email.includes("@")) {
-      setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
+
+    if (!email || !email.includes("@")) {
+      setErrorMessage("Please enter a valid email address");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const response = await fetch('/api/join', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Successfully joined the waitlist
+        setShowSuccess(true);
         setEmail("");
-      }, 5000);
+        setTimeout(() => {
+          setShowSuccess(false);
+        }, 5000);
+      } else if (response.status === 409) {
+        // Already on the waitlist
+        setErrorMessage("You're already on the waitlist! Check your email for confirmation.");
+      } else {
+        // Other errors
+        setErrorMessage(data.error || "Something went wrong. Please try again.");
+      }
+    } catch (error) {
+      console.error('Error joining waitlist:', error);
+      setErrorMessage("Unable to connect. Please check your internet connection and try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -74,14 +109,34 @@ export const WaitlistBeta = (): JSX.Element => {
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
                   required
-                  className="w-full h-10 pl-12 rounded-[10px] border-[0.5px] border-[#0000004c] bg-white [font-family:'Lora',Helvetica] font-normal text-[#101f1c66] text-[12.5px] placeholder:text-[#101f1c66]"
+                  className="w-full h-10 pl-12 rounded-[10px] border-[0.5px] border-[#0000004c] bg-white [font-family:'Lora',Helvetica] font-normal text-[#101f1c66] text-[12.5px] placeholder:text-[#101f1c66] disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
 
-              <Button type="submit" className="w-full h-10 bg-[#101f1c] hover:bg-[#101f1c]/90 rounded-[10px] text-white [font-family:'Inter',Helvetica] font-normal text-[11px]">
-                <ArrowRightIcon className="w-[11.4px] h-[11.4px] mr-2" />
-                Join the waitlist
+              {errorMessage && (
+                <div className="text-red-600 text-xs [font-family:'Inter',Helvetica] font-normal p-2 bg-red-50 rounded-md border border-red-200">
+                  {errorMessage}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-10 bg-[#101f1c] hover:bg-[#101f1c]/90 rounded-[10px] text-white [font-family:'Inter',Helvetica] font-normal text-[11px] disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <span className="animate-spin mr-2">⏳</span>
+                    Joining...
+                  </>
+                ) : (
+                  <>
+                    <ArrowRightIcon className="w-[11.4px] h-[11.4px] mr-2" />
+                    Join the waitlist
+                  </>
+                )}
               </Button>
             </form>
 

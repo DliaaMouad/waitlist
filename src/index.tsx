@@ -1,9 +1,10 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
+import React from "react";
+import ReactDOM from "react-dom/client";
 import { WaitlistBeta } from "./screens/WaitlistBeta";
+import "./index.css";
 
-createRoot(document.getElementById("app") as HTMLElement).render(
-  <StrictMode>
-    <WaitlistBeta />
-  </StrictMode>,
+ReactDOM.createRoot(document.getElementById("app")!).render(
+    <React.StrictMode>
+        <WaitlistBeta />
+    </React.StrictMode>
 );
