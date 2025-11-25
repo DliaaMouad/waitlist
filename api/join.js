@@ -78,25 +78,8 @@ export default async function handler(req, res) {
                 return res.status(409).json({ message: 'Already on waitlist' });
             }
             console.error('Supabase insert error:', insertError);
-            return res.status(500).json({ error: `Insert Error: ${insertError.message}` });
-        }
-
-        // Send welcome email
-        try {
-            await resend.emails.send({
-                from: RESEND_FROM,
-                to: [email],
-                subject: 'Welcome to the Waitlist! 🚀',
-                html: getWelcomeEmailHtml(email),
-            });
-            console.log('Welcome email sent to:', email);
-        } catch (emailError) {
-            console.error('Email send error:', emailError);
-        }
-
-        return res.status(201).json({
             message: 'Joined waitlist successfully',
-            entry: inserted
+                entry: inserted
         });
 
     } catch (error) {
