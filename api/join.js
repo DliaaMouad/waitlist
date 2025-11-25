@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { getWelcomeEmailHtml } from './email-template.js';
 
-function isValidEmail(email) {
+function is ValidEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
 }
@@ -78,8 +78,25 @@ export default async function handler(req, res) {
                 return res.status(409).json({ message: 'Already on waitlist' });
             }
             console.error('Supabase insert error:', insertError);
+            return res.status(500).json({ error: `Insert Error: ${insertError.message}` });
+        }
+
+        // Send welcome email
+        try {
+            await resend.emails.send({
+                from: RESEND_FROM,
+                to: [email],
+                subject: 'Aurium – Pioneering The Future Of Investing',
+                html: getWelcomeEmailHtml(email),
+            });
+            console.log('Welcome email sent to:', email);
+        } catch (emailError) {
+            console.error('Email send error:', emailError);
+        }
+
+        return res.status(201).json({
             message: 'Joined waitlist successfully',
-                entry: inserted
+            entry: inserted
         });
 
     } catch (error) {
