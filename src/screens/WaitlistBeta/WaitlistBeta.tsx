@@ -32,7 +32,16 @@ export const WaitlistBeta = (): JSX.Element => {
         body: JSON.stringify({ email }),
       });
 
-      const data = await response.json();
+      let data;
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+      } else {
+        // Handle non-JSON response (likely 404 or 500 HTML page)
+        const text = await response.text();
+        console.error('Non-JSON response:', text);
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
 
       if (response.ok) {
         // Successfully joined the waitlist
@@ -46,11 +55,11 @@ export const WaitlistBeta = (): JSX.Element => {
         setErrorMessage("You're already on the waitlist! Check your email for confirmation.");
       } else {
         // Other errors
-        setErrorMessage(data.error || "Something went wrong. Please try again.");
+        setErrorMessage(data.error || `Error ${response.status}: Something went wrong.`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error joining waitlist:', error);
-      setErrorMessage("Unable to connect. Please check your internet connection and try again.");
+      setErrorMessage(error.message || "Unable to connect. Please check your internet connection and try again.");
     } finally {
       setIsLoading(false);
     }
