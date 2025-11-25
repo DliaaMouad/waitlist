@@ -1,6 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const { Resend } = require('resend');
-const { getWelcomeEmailHtml } = require('./email-template.js');
+const { getWelcomeEmailHtml } = require('./email-template.cjs');
 
 function isValidEmail(email) {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
